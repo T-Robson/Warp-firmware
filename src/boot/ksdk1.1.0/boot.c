@@ -87,6 +87,7 @@
 #include "devHDC1000.h"
 #include "devRV8803C7.h"
 
+#include "devSSD1331.h" // Line I added
 
 #if (WARP_BUILD_ENABLE_DEVADXL362)
 	volatile WarpSPIDeviceState			deviceADXL362State;
@@ -1667,6 +1668,9 @@ main(void)
 /*
  *	Initialize all the sensors
  */
+
+devSSD1331init();
+
 #if (WARP_BUILD_ENABLE_DEVBMX055)
 		initBMX055accel(0x18	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsBMX055accel	);
 		initBMX055gyro(	0x68	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsBMX055gyro	);
@@ -1674,7 +1678,7 @@ main(void)
 #endif
 
 #if (WARP_BUILD_ENABLE_DEVMMA8451Q)
-		initMMA8451Q(	0x1C	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsMMA8451Q	);
+		initMMA8451Q(	0x1D	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsMMA8451Q	);
 #endif
 
 #if (WARP_BUILD_ENABLE_DEVLPS25H)
@@ -1916,6 +1920,7 @@ main(void)
 
 	bool _originalWarpExtraQuietMode = gWarpExtraQuietMode;
 	gWarpExtraQuietMode = false;
+
 	warpPrint("Press any key to show menu...\n");
 	gWarpExtraQuietMode = _originalWarpExtraQuietMode;
 
@@ -1925,6 +1930,7 @@ main(void)
 		OSA_TimeDelay(1);
 		timer++;
 	}
+
 
 	if (rttKey < 0)
 	{
@@ -2020,6 +2026,7 @@ main(void)
 	}
 #endif
 
+
 	while (1)
 	{
 		/*
@@ -2072,11 +2079,22 @@ main(void)
 		warpPrint("\r- 'x': disable SWD and spin for 10 secs.\n");
 		warpPrint("\r- 'z': perpetually dump all sensor data.\n");
 
+		/* Display Demo Added */
+		warpPrint("\r- 'D': run OLED display demo.\n");
+
+
+
 		warpPrint("\rEnter selection> ");
 		key = warpWaitKey();
 
 		switch (key)
 		{
+			/* Display Demo Added */
+			case 'D':
+			{
+				devSSD1331demo();
+				break;
+			}
 			/*
 			 *		Select sensor
 			 */
