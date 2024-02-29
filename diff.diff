@@ -1,0 +1,605 @@
+
+diff --git a/src/boot/ksdk1.1.0/CMakeLists-Glaux.txt b/src/boot/ksdk1.1.0/CMakeLists-Glaux.txt
+index 37b137f..fe40a42 100755
+--- a/src/boot/ksdk1.1.0/CMakeLists-Glaux.txt
++++ b/src/boot/ksdk1.1.0/CMakeLists-Glaux.txt
+@@ -95,6 +95,7 @@ ADD_EXECUTABLE(Glaux
+     "${ProjDirPath}/../../src/devIS25xP.c"
+     "${ProjDirPath}/../../src/devBME680.c"
+     "${ProjDirPath}/../../src/devRV8803C7.c"
++    "${ProjDirPath}/../../src/devSSD1331.c"
+     "${ProjDirPath}/../../src/SEGGER_RTT.c"
+     "${ProjDirPath}/../../src/SEGGER_RTT_printf.c"
+     "${ProjDirPath}/../../../../platform/drivers/src/i2c/fsl_i2c_irq.c"
+diff --git a/src/boot/ksdk1.1.0/CMakeLists-Warp.txt b/src/boot/ksdk1.1.0/CMakeLists-Warp.txt
+index 1508eea..a03e368 100644
+--- a/src/boot/ksdk1.1.0/CMakeLists-Warp.txt
++++ b/src/boot/ksdk1.1.0/CMakeLists-Warp.txt
+@@ -101,6 +101,7 @@ ADD_EXECUTABLE(Warp
+     "${ProjDirPath}/../../src/devHDC1000.c"
+     "${ProjDirPath}/../../src/devMAG3110.c"
+     "${ProjDirPath}/../../src/devSI7021.c"
++    "${ProjDirPath}/../../src/devSSD1331.c"
+     "${ProjDirPath}/../../src/devL3GD20H.c"
+     "${ProjDirPath}/../../src/devBME680.c"
+     "${ProjDirPath}/../../src/devTCS34725.c"
+
+
+diff --git a/src/boot/ksdk1.1.0/devSSD1331.c b/src/boot/ksdk1.1.0/devSSD1331.c
+index 7c4eb63..67297a7 100644
+--- a/src/boot/ksdk1.1.0/devSSD1331.c
++++ b/src/boot/ksdk1.1.0/devSSD1331.c
+@@ -1,168 +1,213 @@
+-#include <stdint.h>
+-
+-/*
+- *	config.h needs to come first
+- */
+-#include "config.h"
+-
+-#include "fsl_spi_master_driver.h"
+-#include "fsl_port_hal.h"
+-
+-#include "SEGGER_RTT.h"
+-#include "gpio_pins.h"
+-#include "warp.h"
+-#include "devSSD1331.h"
+-
+-volatile uint8_t	inBuffer[1];
+-volatile uint8_t	payloadBytes[1];
+-
+-
+-/*
+- *	Override Warp firmware's use of these pins and define new aliases.
+- */
+-enum
+-{
+-	kSSD1331PinMOSI		= GPIO_MAKE_PIN(HW_GPIOA, 8),
+-	kSSD1331PinSCK		= GPIO_MAKE_PIN(HW_GPIOA, 9),
+-	kSSD1331PinCSn		= GPIO_MAKE_PIN(HW_GPIOB, 13),
+-	kSSD1331PinDC		= GPIO_MAKE_PIN(HW_GPIOA, 12),
+-	kSSD1331PinRST		= GPIO_MAKE_PIN(HW_GPIOB, 0),
+-};
+-
+-static int
+-writeCommand(uint8_t commandByte)
+-{
+-	spi_status_t status;
+-
+-	/*
+-	 *	Drive /CS low.
+-	 *
+-	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
+-	 */
+-	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+-	OSA_TimeDelay(10);
+-	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
+-
+-	/*
+-	 *	Drive DC low (command).
+-	 */
+-	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
+-
+-	payloadBytes[0] = commandByte;
+-	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
+-					NULL		/* spi_master_user_config_t */,
+-					(const uint8_t * restrict)&payloadBytes[0],
+-					(uint8_t * restrict)&inBuffer[0],
+-					1		/* transfer size */,
+-					1000		/* timeout in microseconds (unlike I2C which is ms) */);
+-
+-	/*
+-	 *	Drive /CS high
+-	 */
+-	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
+-
+-	return status;
+-}
+-
+-
+-
+-int
+-devSSD1331init(void)
+-{
+-	/*
+-	 *	Override Warp firmware's use of these pins.
+-	 *
+-	 *	Re-configure SPI to be on PTA8 and PTA9 for MOSI and SCK respectively.
+-	 */
+-	PORT_HAL_SetMuxMode(PORTA_BASE, 8u, kPortMuxAlt3);
+-	PORT_HAL_SetMuxMode(PORTA_BASE, 9u, kPortMuxAlt3);
+-
+-	enableSPIpins();
+-
+-	/*
+-	 *	Override Warp firmware's use of these pins.
+-	 *
+-	 *	Reconfigure to use as GPIO.
+-	 */
+-	PORT_HAL_SetMuxMode(PORTB_BASE, 13u, kPortMuxAsGpio);
+-	PORT_HAL_SetMuxMode(PORTA_BASE, 12u, kPortMuxAsGpio);
+-	PORT_HAL_SetMuxMode(PORTB_BASE, 0u, kPortMuxAsGpio);
+-
+-
+-	/*
+-	 *	RST high->low->high.
+-	 */
+-	GPIO_DRV_SetPinOutput(kSSD1331PinRST);
+-	OSA_TimeDelay(100);
+-	GPIO_DRV_ClearPinOutput(kSSD1331PinRST);
+-	OSA_TimeDelay(100);
+-	GPIO_DRV_SetPinOutput(kSSD1331PinRST);
+-	OSA_TimeDelay(100);
+-
+-	/*
+-	 *	Initialization sequence, borrowed from https://github.com/adafruit/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino
+-	 */
+-	writeCommand(kSSD1331CommandDISPLAYOFF);	// 0xAE
+-	writeCommand(kSSD1331CommandSETREMAP);		// 0xA0
+-	writeCommand(0x72);				// RGB Color
+-	writeCommand(kSSD1331CommandSTARTLINE);		// 0xA1
+-	writeCommand(0x0);
+-	writeCommand(kSSD1331CommandDISPLAYOFFSET);	// 0xA2
+-	writeCommand(0x0);
+-	writeCommand(kSSD1331CommandNORMALDISPLAY);	// 0xA4
+-	writeCommand(kSSD1331CommandSETMULTIPLEX);	// 0xA8
+-	writeCommand(0x3F);				// 0x3F 1/64 duty
+-	writeCommand(kSSD1331CommandSETMASTER);		// 0xAD
+-	writeCommand(0x8E);
+-	writeCommand(kSSD1331CommandPOWERMODE);		// 0xB0
+-	writeCommand(0x0B);
+-	writeCommand(kSSD1331CommandPRECHARGE);		// 0xB1
+-	writeCommand(0x31);
+-	writeCommand(kSSD1331CommandCLOCKDIV);		// 0xB3
+-	writeCommand(0xF0);				// 7:4 = Oscillator Frequency, 3:0 = CLK Div Ratio (A[3:0]+1 = 1..16)
+-	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8A
+-	writeCommand(0x64);
+-	writeCommand(kSSD1331CommandPRECHARGEB);	// 0x8B
+-	writeCommand(0x78);
+-	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8C
+-	writeCommand(0x64);
+-	writeCommand(kSSD1331CommandPRECHARGELEVEL);	// 0xBB
+-	writeCommand(0x3A);
+-	writeCommand(kSSD1331CommandVCOMH);		// 0xBE
+-	writeCommand(0x3E);
+-	writeCommand(kSSD1331CommandMASTERCURRENT);	// 0x87
+-	writeCommand(0x06);
+-	writeCommand(kSSD1331CommandCONTRASTA);		// 0x81
+-	writeCommand(0x91);
+-	writeCommand(kSSD1331CommandCONTRASTB);		// 0x82
+-	writeCommand(0x50);
+-	writeCommand(kSSD1331CommandCONTRASTC);		// 0x83
+-	writeCommand(0x7D);
+-	writeCommand(kSSD1331CommandDISPLAYON);		// Turn on oled panel
+-
+-	/*
+-	 *	To use fill commands, you will have to issue a command to the display to enable them. See the manual.
+-	 */
+-	writeCommand(kSSD1331CommandFILL);
+-	writeCommand(0x01);
+-
+-	/*
+-	 *	Clear Screen
+-	 */
+-	writeCommand(kSSD1331CommandCLEAR);
+-	writeCommand(0x00);
+-	writeCommand(0x00);
+-	writeCommand(0x5F);
+-	writeCommand(0x3F);
+-
+-
+-
+-	/*
+-	 *	Any post-initialization drawing commands go here.
+-	 */
+-	//...
+-
+-
+-
+-	return 0;
+-}
++#include <stdint.h>
++
++#include "config.h"
++
++#include "fsl_spi_master_driver.h"
++#include "fsl_port_hal.h"
++
++#include "SEGGER_RTT.h"
++#include "gpio_pins.h"
++#include "warp.h"
++#include "devSSD1331.h"
++
++
++volatile uint8_t	inBuffer[32];
++volatile uint8_t	payloadBytes[32];
++
++
++/*
++ *	Override Warp firmware's use of these pins and define new aliases.
++ */
++/*
++enum
++{
++	kSSD1331PinMOSI		= GPIO_MAKE_PIN(HW_GPIOA, 8),
++	kSSD1331PinSCK		= GPIO_MAKE_PIN(HW_GPIOA, 9),
++	kSSD1331PinCSn		= GPIO_MAKE_PIN(HW_GPIOB, 13),
++	kSSD1331PinDC		= GPIO_MAKE_PIN(HW_GPIOA, 12),
++	kSSD1331PinRST		= GPIO_MAKE_PIN(HW_GPIOB, 0),
++};
++*/
++static int
++writeCommand(uint8_t commandByte)
++{
++	spi_status_t status;
++
++	/*
++	 *	Drive /CS low.
++	 *
++	 *	Make sure there is a high-to-low transition by first driving high, delay, then drive low.
++	 */
++	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
++	OSA_TimeDelay(10);
++	GPIO_DRV_ClearPinOutput(kSSD1331PinCSn);
++
++	/*
++	 *	Drive DC low (command).
++	 */
++	GPIO_DRV_ClearPinOutput(kSSD1331PinDC);
++
++	payloadBytes[0] = commandByte;
++	status = SPI_DRV_MasterTransferBlocking(0	/* master instance */,
++					NULL		/* spi_master_user_config_t */,
++					(const uint8_t * restrict)&payloadBytes[0],
++					(uint8_t * restrict)&inBuffer[0],
++					1		/* transfer size */,
++					1000		/* timeout in microseconds (unlike I2C which is ms) */);
++
++	/*
++	 *	Drive /CS high
++	 */
++	GPIO_DRV_SetPinOutput(kSSD1331PinCSn);
++
++	return status;
++}
++
++
++
++int
++devSSD1331init(void)
++{
++	/*
++	 *	Override Warp firmware's use of these pins.
++	 *
++	 *	Re-configure SPI to be on PTA8 and PTA9 for MOSI and SCK respectively.
++	 */
++	PORT_HAL_SetMuxMode(PORTA_BASE, 8u, kPortMuxAlt3);
++	PORT_HAL_SetMuxMode(PORTA_BASE, 9u, kPortMuxAlt3);
++
++	warpEnableSPIpins();
++
++	/*
++	 *	Override Warp firmware's use of these pins.
++	 *
++	 *	Reconfigure to use as GPIO.
++	 */
++	PORT_HAL_SetMuxMode(PORTB_BASE, 13u, kPortMuxAsGpio);
++	PORT_HAL_SetMuxMode(PORTA_BASE, 12u, kPortMuxAsGpio);
++	PORT_HAL_SetMuxMode(PORTB_BASE, 0u, kPortMuxAsGpio);
++
++
++	/*
++	 *	RST high->low->high.
++	 */
++	GPIO_DRV_SetPinOutput(kSSD1331PinRST);
++	OSA_TimeDelay(100);
++	GPIO_DRV_ClearPinOutput(kSSD1331PinRST);
++	OSA_TimeDelay(100);
++	GPIO_DRV_SetPinOutput(kSSD1331PinRST);
++	OSA_TimeDelay(100);
++
++	/*
++	 *	Initialization sequence, borrowed from https://github.com/adafruit/Adafruit-SSD1331-OLED-Driver-Library-for-Arduino
++	 */
++	writeCommand(kSSD1331CommandDISPLAYOFF);	// 0xAE
++	writeCommand(kSSD1331CommandSETREMAP);		// 0xA0
++	writeCommand(0x72);				// RGB Color
++	writeCommand(kSSD1331CommandSTARTLINE);		// 0xA1
++	writeCommand(0x0);
++	writeCommand(kSSD1331CommandDISPLAYOFFSET);	// 0xA2
++	writeCommand(0x0);
++	writeCommand(kSSD1331CommandNORMALDISPLAY);	// 0xA4
++	writeCommand(kSSD1331CommandSETMULTIPLEX);	// 0xA8
++	writeCommand(0x3F);				// 0x3F 1/64 duty
++	writeCommand(kSSD1331CommandSETMASTER);		// 0xAD
++	writeCommand(0x8E);
++	writeCommand(kSSD1331CommandPOWERMODE);		// 0xB0
++	writeCommand(0x0B);
++	writeCommand(kSSD1331CommandPRECHARGE);		// 0xB1
++	writeCommand(0x31);
++	writeCommand(kSSD1331CommandCLOCKDIV);		// 0xB3
++	writeCommand(0xF0);				// 7:4 = Oscillator Frequency, 3:0 = CLK Div Ratio (A[3:0]+1 = 1..16)
++	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8A
++	writeCommand(0x64);
++	writeCommand(kSSD1331CommandPRECHARGEB);	// 0x8B
++	writeCommand(0x78);
++	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8C
++	writeCommand(0x64);
++	writeCommand(kSSD1331CommandPRECHARGELEVEL);	// 0xBB
++	writeCommand(0x3A);
++	writeCommand(kSSD1331CommandVCOMH);		// 0xBE
++	writeCommand(0x3E);
++	writeCommand(kSSD1331CommandMASTERCURRENT);	// 0x87
++	writeCommand(0x06);
++	writeCommand(kSSD1331CommandCONTRASTA);		// 0x81
++	writeCommand(0x91);
++	writeCommand(kSSD1331CommandCONTRASTB);		// 0x82
++	writeCommand(0x50);
++	writeCommand(kSSD1331CommandCONTRASTC);		// 0x83
++	writeCommand(0x7D);
++	writeCommand(kSSD1331CommandDISPLAYON);		// Turn on oled panel
++	SEGGER_RTT_WriteString(0, "\r\n\tDone with initialization sequence...\n");
++
++	/*
++	 *	To use fill commands, you will have to issue a command to the display to enable them. See the manual.
++	 */
++	writeCommand(kSSD1331CommandFILL);
++	writeCommand(0x01);
++	SEGGER_RTT_WriteString(0, "\r\n\tDone with enabling fill...\n");
++
++	/*
++	 *	Clear Screen
++	 */
++	writeCommand(kSSD1331CommandCLEAR);
++	writeCommand(0x00);
++	writeCommand(0x00);
++	writeCommand(0x5F);
++	writeCommand(0x3F);
++	SEGGER_RTT_WriteString(0, "\r\n\tDone with screen clear...\n");
++
++
++
++	/*
++	 *	Read the manual for the SSD1331 (SSD1331_1.2.pdf) to figure
++	 *	out how to fill the entire screen with the brightest shade
++	 *	of green.
++	 */
++
++	 //set max contrast (0xFF) on each colour channel for brightest green
++    writeCommand(kSSD1331CommandCONTRASTA);		// 0x81
++	writeCommand(0xFF);
++	writeCommand(kSSD1331CommandCONTRASTB);		// 0x82
++	writeCommand(0xFF);
++	writeCommand(kSSD1331CommandCONTRASTC);		// 0x83
++	writeCommand(0xFF);
++    
++    // set highest precharge level possible and highest speed for max brightness
++	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8A
++	writeCommand(0xFF);
++	writeCommand(kSSD1331CommandPRECHARGEB);	// 0x8B
++	writeCommand(0xFF);
++	writeCommand(kSSD1331CommandPRECHARGEA);	// 0x8C
++	writeCommand(0xFF);
++	writeCommand(kSSD1331CommandPRECHARGELEVEL);	// 0xBB
++	writeCommand(0x3E);	
++
++    // set maximum pixel current for maximum brightness
++	writeCommand(kSSD1331CommandMASTERCURRENT);	// 0x87
++	writeCommand(0x0F);
++
++
++    writeCommand(kSSD1331CommandDRAWRECT);
++    // start column -> row
++    writeCommand(0x00);
++    writeCommand(0x00);
++    // end column -> row
++    writeCommand(0x5F);
++    writeCommand(0x3F);
++    // line colour BGR in rgb565
++    writeCommand(0x00);
++    writeCommand(0x3F);
++    writeCommand(0x00);
++    // fill colour BGR in rgb565
++    writeCommand(0x00);
++    writeCommand(0x3F);
++    writeCommand(0x00);
++
++ 
++	SEGGER_RTT_WriteString(0, "\r\n\tDone with draw rectangle...\n");
++
++
++
++	return 0;
++}
+diff --git a/src/boot/ksdk1.1.0/devSSD1331.h b/src/boot/ksdk1.1.0/devSSD1331.h
+index 9005e40..0de5b34 100644
+--- a/src/boot/ksdk1.1.0/devSSD1331.h
++++ b/src/boot/ksdk1.1.0/devSSD1331.h
+@@ -11,35 +11,35 @@ typedef enum
+ 
+ typedef enum
+ {
+-	kSSD1331CommandDRAWLINE			= 0x21,
+-	kSSD1331CommandDRAWRECT			= 0x22,
+-	kSSD1331CommandCLEAR			= 0x25,
+-	kSSD1331CommandFILL				= 0x26,
+-	kSSD1331CommandSETCOLUMN		= 0x15,
+-	kSSD1331CommandSETROW			= 0x75,
+-	kSSD1331CommandCONTRASTA		= 0x81,
+-	kSSD1331CommandCONTRASTB		= 0x82,
+-	kSSD1331CommandCONTRASTC		= 0x83,
++	kSSD1331CommandDRAWLINE		= 0x21,
++	kSSD1331CommandDRAWRECT		= 0x22,
++	kSSD1331CommandCLEAR		= 0x25,
++	kSSD1331CommandFILL		= 0x26,
++	kSSD1331CommandSETCOLUMN	= 0x15,
++	kSSD1331CommandSETROW		= 0x75,
++	kSSD1331CommandCONTRASTA	= 0x81,
++	kSSD1331CommandCONTRASTB	= 0x82,
++	kSSD1331CommandCONTRASTC	= 0x83,
+ 	kSSD1331CommandMASTERCURRENT	= 0x87,
+-	kSSD1331CommandSETREMAP			= 0xA0,
+-	kSSD1331CommandSTARTLINE		= 0xA1,
++	kSSD1331CommandSETREMAP		= 0xA0,
++	kSSD1331CommandSTARTLINE	= 0xA1,
+ 	kSSD1331CommandDISPLAYOFFSET	= 0xA2,
+ 	kSSD1331CommandNORMALDISPLAY	= 0xA4,
+-	kSSD1331CommandDISPLAYALLON		= 0xA5,
++	kSSD1331CommandDISPLAYALLON	= 0xA5,
+ 	kSSD1331CommandDISPLAYALLOFF	= 0xA6,
+ 	kSSD1331CommandINVERTDISPLAY	= 0xA7,
+-	kSSD1331CommandSETMULTIPLEX		= 0xA8,
+-	kSSD1331CommandSETMASTER		= 0xAD,
+-	kSSD1331CommandDISPLAYOFF		= 0xAE,
+-	kSSD1331CommandDISPLAYON		= 0xAF,
+-	kSSD1331CommandPOWERMODE		= 0xB0,
+-	kSSD1331CommandPRECHARGE		= 0xB1,
+-	kSSD1331CommandCLOCKDIV			= 0xB3,
+-	kSSD1331CommandPRECHARGEA		= 0x8A,
+-	kSSD1331CommandPRECHARGEB		= 0x8B,
+-	kSSD1331CommandPRECHARGEC		= 0x8C,
++	kSSD1331CommandSETMULTIPLEX	= 0xA8,
++	kSSD1331CommandSETMASTER	= 0xAD,
++	kSSD1331CommandDISPLAYOFF	= 0xAE,
++	kSSD1331CommandDISPLAYON	= 0xAF,
++	kSSD1331CommandPOWERMODE	= 0xB0,
++	kSSD1331CommandPRECHARGE	= 0xB1,
++	kSSD1331CommandCLOCKDIV		= 0xB3,
++	kSSD1331CommandPRECHARGEA	= 0x8A,
++	kSSD1331CommandPRECHARGEB	= 0x8B,
++	kSSD1331CommandPRECHARGEC	= 0x8C,
+ 	kSSD1331CommandPRECHARGELEVEL	= 0xBB,
+-	kSSD1331CommandVCOMH			= 0xBE,
++	kSSD1331CommandVCOMH		= 0xBE,
+ } SSD1331Commands;
+ 
+ int	devSSD1331init(void);
+diff --git a/src/boot/ksdk1.1.0/gpio_pins.c b/src/boot/ksdk1.1.0/gpio_pins.c
+index 0d4ad29..733ea55 100644
+--- a/src/boot/ksdk1.1.0/gpio_pins.c
++++ b/src/boot/ksdk1.1.0/gpio_pins.c
+@@ -167,6 +167,39 @@ gpio_output_pin_user_config_t	outputPins[] = {
+ 		},
+ 	#elif (WARP_BUILD_ENABLE_FRDMKL03)
+ 
++	
++
++	{
++		.pinName = kSSD1331PinMOSI,
++		.config.outputLogic = 1,
++		.config.slewRate = kPortSlowSlewRate,
++		.config.driveStrength = kPortLowDriveStrength,
++	},
++	{
++		.pinName = kSSD1331PinSCK,
++		.config.outputLogic = 1,
++		.config.slewRate = kPortSlowSlewRate,
++		.config.driveStrength = kPortLowDriveStrength,
++	},
++	{
++                .pinName = kSSD1331PinCSn,
++                .config.outputLogic = 1,
++                .config.slewRate = kPortSlowSlewRate,
++                .config.driveStrength = kPortLowDriveStrength,
++        },
++	{
++                .pinName = kSSD1331PinDC,
++                .config.outputLogic = 1,
++                .config.slewRate = kPortSlowSlewRate,
++                .config.driveStrength = kPortLowDriveStrength,
++        },
++	{
++                .pinName = kSSD1331PinRST,
++                .config.outputLogic = 1,
++                .config.slewRate = kPortSlowSlewRate,
++                .config.driveStrength = kPortLowDriveStrength,
++        },
++
+ 	#endif
+ 
+ 	{
+diff --git a/src/boot/ksdk1.1.0/gpio_pins.h b/src/boot/ksdk1.1.0/gpio_pins.h
+index 3c76bfd..ceba3bc 100644
+--- a/src/boot/ksdk1.1.0/gpio_pins.h
++++ b/src/boot/ksdk1.1.0/gpio_pins.h
+@@ -34,9 +34,9 @@
+ 
+ enum _gpio_pins
+ {
+-	kWarpPinUnusedPTA0			= GPIO_MAKE_PIN(HW_GPIOA, 0),	/*	PTA0: Reserved for SWD CLK	*/
+-	kWarpPinUnusedPTA1			= GPIO_MAKE_PIN(HW_GPIOA, 1),	/*	PTA1: Reserved for SWD RESET_B	*/
+-	kWarpPinUnusedPTA2			= GPIO_MAKE_PIN(HW_GPIOA, 2),	/*	PTA2: Reserved for SWD DIO	*/
++	//kWarpPinUnusedPTA0			= GPIO_MAKE_PIN(HW_GPIOA, 0),	/*	PTA0: Reserved for SWD CLK	*/
++	//kWarpPinUnusedPTA1			= GPIO_MAKE_PIN(HW_GPIOA, 1),	/*	PTA1: Reserved for SWD RESET_B	*/
++	//kWarpPinUnusedPTA2			= GPIO_MAKE_PIN(HW_GPIOA, 2),	/*	PTA2: Reserved for SWD DIO	*/
+ 	kWarpPinEXTAL0				= GPIO_MAKE_PIN(HW_GPIOA, 3),	/*	PTA3: Reserved for EXTAL0	*/
+ 	kWarpPinXTAL0				= GPIO_MAKE_PIN(HW_GPIOA, 4),	/*	PTA4: Reserved for XTAL0	*/
+ 
+@@ -69,7 +69,7 @@ enum _gpio_pins
+ 	#endif
+ 
+ 	#if (WARP_BUILD_ENABLE_FRDMKL03)
+-		kWarpPinUnusedPTB0			= GPIO_MAKE_PIN(HW_GPIOB, 0),
++		kSSD1331PinRST  			= GPIO_MAKE_PIN(HW_GPIOB, 0),
+ 		kWarpPinUnusedPTB1			= GPIO_MAKE_PIN(HW_GPIOB, 1),
+ 		kWarpPinUnusedPTB2			= GPIO_MAKE_PIN(HW_GPIOB, 2),
+ 		kWarpPinUnusedPTB3			= GPIO_MAKE_PIN(HW_GPIOB, 3),
+@@ -79,7 +79,7 @@ enum _gpio_pins
+ 		kWarpPinUnusedPTB7			= GPIO_MAKE_PIN(HW_GPIOB, 7),
+ 		kWarpPinUnusedPTB10			= GPIO_MAKE_PIN(HW_GPIOB, 10),
+ 		kWarpPinUnusedPTB11			= GPIO_MAKE_PIN(HW_GPIOB, 11),
+-		kWarpPinUnusedPTB13			= GPIO_MAKE_PIN(HW_GPIOB, 13),
++		kSSD1331PinCSn	        		= GPIO_MAKE_PIN(HW_GPIOB, 13),
+ 
+ 		kWarpPinUnusedPTA0			= GPIO_MAKE_PIN(HW_GPIOA, 0),
+ 		kWarpPinUnusedPTA1			= GPIO_MAKE_PIN(HW_GPIOA, 1),
+@@ -89,9 +89,9 @@ enum _gpio_pins
+ 		kWarpPinUnusedPTA5			= GPIO_MAKE_PIN(HW_GPIOA, 5),
+ 		kWarpPinUnusedPTA6			= GPIO_MAKE_PIN(HW_GPIOA, 6),
+ 		kWarpPinUnusedPTA7			= GPIO_MAKE_PIN(HW_GPIOA, 7),
+-		kWarpPinUnusedPTA8			= GPIO_MAKE_PIN(HW_GPIOA, 8),
+-		kWarpPinUnusedPTA9			= GPIO_MAKE_PIN(HW_GPIOA, 9),
+-		kWarpPinUnusedPTA12			= GPIO_MAKE_PIN(HW_GPIOA, 12),
++		kSSD1331PinMOSI 			= GPIO_MAKE_PIN(HW_GPIOA, 8),
++		kSSD1331PinSCK  			= GPIO_MAKE_PIN(HW_GPIOA, 9),
++		kSSD1331PinDC		        	= GPIO_MAKE_PIN(HW_GPIOA, 12),
+ 	#else
+ 		#if (WARP_BUILD_ENABLE_GLAUX_VARIANT)
+ 			kGlauxPinFlash_SPI_nCS		= GPIO_MAKE_PIN(HW_GPIOB, 2),
+diff --git a/src/boot/ksdk1.1.0/warp.h b/src/boot/ksdk1.1.0/warp.h
+index 6f566fc..7078e20 100644
+--- a/src/boot/ksdk1.1.0/warp.h
++++ b/src/boot/ksdk1.1.0/warp.h
+@@ -1,5 +1,6 @@
+ #include "fsl_spi_master_driver.h"
+ 
++
+ #define	min(x,y)	((x) < (y) ? (x) : (y))
+ #define	max(x,y)	((x) > (y) ? (x) : (y))
+ #define	USED(x)		(void)(x)
+diff --git a/tools/scripts/glaux.jlink.commands b/tools/scripts/glaux.jlink.commands
+index 944324e..cc843de 100644
+--- a/tools/scripts/glaux.jlink.commands
++++ b/tools/scripts/glaux.jlink.commands
+@@ -1,6 +1,6 @@
+ power on perm
+ exec EnableRemarks
+ unlock kinetis
+-loadfile <full-path-to-warp-firmware>/build/ksdk1.1/work/demos/Glaux/armgcc/Glaux/release/Glaux.srec
++loadfile /home/simon/Warp-firmware/build/ksdk1.1/work/demos/Glaux/armgcc/Glaux/release/Glaux.srec
+ r
+ go
+diff --git a/tools/scripts/warp.jlink.commands b/tools/scripts/warp.jlink.commands
+old mode 100644
+new mode 100755
+index da5814a..8a91bbe
+--- a/tools/scripts/warp.jlink.commands
++++ b/tools/scripts/warp.jlink.commands
+@@ -1,6 +1,6 @@
+ power on perm
+ exec EnableRemarks
+ unlock kinetis
+-loadfile <full-path-to-warp-firmware>/build/ksdk1.1/work/demos/Warp/armgcc/Warp/release/Warp.srec
++loadfile /home/simon/Warp-firmware/build/ksdk1.1/work/demos/Warp/armgcc/Warp/release/Warp.srec
+ r
+ go
