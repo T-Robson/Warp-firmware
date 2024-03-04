@@ -89,11 +89,6 @@
 
 #include "devSSD1331.h" // Line I added
 
-// New
-#include "devINA219.h"
-
-
-
 #if (WARP_BUILD_ENABLE_DEVADXL362)
 	volatile WarpSPIDeviceState			deviceADXL362State;
 #endif
@@ -136,12 +131,6 @@
 #if (WARP_BUILD_ENABLE_DEVHDC1000)
 	volatile WarpI2CDeviceState			deviceHDC1000State;
 #endif
-
-
-// ADDED
-#if (WARP_BUILD_ENABLE_DEVINA219)
-	volatile WarpI2CDeviceState 		deviceINA219State;
-#endif 
 
 #if (WARP_BUILD_ENABLE_DEVMAG3110)
 	volatile WarpI2CDeviceState			deviceMAG3110State;
@@ -212,7 +201,6 @@ typedef enum
 	kWarpFlashBMX055BitField		= 0b1000000000,
 	kWarpFlashCCS811BitField		= 0b10000000000,
 	kWarpFlashHDC1000BitField		= 0b100000000000,
-	kWarpFlashINA219BitField		= 0b1000000000000,
 	kWarpFlashRV8803C7BitField		= 0b100000000000000,
 	kWarpFlashNumConfigErrors		= 0b1000000000000000,
 } WarpFlashSensorBitFieldEncoding;
@@ -253,7 +241,7 @@ uint8_t							gWarpSpiCommonSinkBuffer[kWarpMemoryCommonSpiBufferBytes];
 static void						sleepUntilReset(void);
 static void						lowPowerPinStates(void);
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	static void					disableTPS62740(void);
 	static void					enableTPS62740(uint16_t voltageMillivolts);
 	static void					setTPS62740CommonControlLines(uint16_t voltageMillivolts);
@@ -897,7 +885,7 @@ lowPowerPinStates(void)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 disableTPS62740(void)
 {
@@ -906,7 +894,7 @@ disableTPS62740(void)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 enableTPS62740(uint16_t voltageMillivolts)
 {
@@ -932,7 +920,7 @@ enableTPS62740(uint16_t voltageMillivolts)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 setTPS62740CommonControlLines(uint16_t voltageMillivolts)
 {
@@ -1124,7 +1112,7 @@ warpScaleSupplyVoltage(uint16_t voltageMillivolts)
 		return;
 	}
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	if (voltageMillivolts >= 1800 && voltageMillivolts <= 3300)
 	{
 		enableTPS62740(voltageMillivolts);
@@ -1142,7 +1130,7 @@ warpScaleSupplyVoltage(uint16_t voltageMillivolts)
 void
 warpDisableSupplyVoltage(void)
 {
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	disableTPS62740();
 
 	/*
@@ -1701,13 +1689,6 @@ devSSD1331init();
 		initHDC1000(	0x43	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsHDC1000	);
 #endif
 
-
-// Added
-#if (WARP_BUILD_ENABLE_DEVINA219)
-		initINA219(   0x40 /*i2cAddress*/,		kWarpDefaultSupplyVoltageMillivoltsINA219 );
-
-#endif
-
 #if (WARP_BUILD_ENABLE_DEVMAG3110)
 		initMAG3110(	0x0E	/* i2cAddress */,	kWarpDefaultSupplyVoltageMillivoltsMAG3110	);
 #endif
@@ -1950,7 +1931,7 @@ devSSD1331init();
 		timer++;
 	}
 
-#if 0
+
 	if (rttKey < 0)
 	{
 		printBootSplash(gWarpCurrentSupplyVoltage, menuRegisterAddress,
@@ -1984,7 +1965,6 @@ devSSD1331init();
 		 *	Notreached
 		 */
 	}
-#endif
 #endif
 
 #if (WARP_BUILD_ENABLE_GLAUX_VARIANT && WARP_BUILD_BOOT_TO_CSVSTREAM)
@@ -2078,9 +2058,6 @@ devSSD1331init();
 		warpPrint("\r- 's': power up all sensors.\n");
 		warpPrint("\r- 't': dump processor state.\n");
 		warpPrint("\r- 'u': set I2C address.\n");
-#if (WARP_BUILD_ENABLE_CURRENT)
-		warpPrint("\r- 'C': perform current measurement routine. \n");
-#endif
 
 #if (WARP_BUILD_ENABLE_DEVAT45DB)
 		warpPrint("\r- 'R': read bytes from Flash.\n");
@@ -2164,14 +2141,6 @@ devSSD1331init();
 #else
 					warpPrint("\r\t- '8' HDC1000			(0x00--0x1F): 3.0V -- 5.0V (compiled out) \n");
 #endif
-
-//Added
-#if (WARP_BUILD_ENABLE_DEVINA219)
-					warpPrint("\r\t- 'l' INA219			(Not Sure--Not sure): 3.3V -- 5.0V\n"); // Need to fix the address thing
-#else
-					warpPrint("\r\t- 'l' INA219			(0x00--0x1F): 3.3V -- 5.0V (compiled out) \n");
-#endif
-
 
 #if (WARP_BUILD_ENABLE_DEVSI7021)
 					warpPrint("\r\t- '9' SI7021			(0x00--0x0F): 1.9V -- 3.6V\n");
@@ -2300,18 +2269,6 @@ devSSD1331init();
 					{
 						menuTargetSensor = kWarpSensorHDC1000;
 							menuI2cDevice = &deviceHDC1000State;
-						break;
-					}
-#endif
-
-// Added 
-
-#if (WARP_BUILD_ENABLE_DEVINA219)
-					case 'l':
-					{
-						warpPrint("INA219 chosen");
-						menuTargetSensor = kWarpSensorINA219;
-							menuI2cDevice = &deviceINA219State;
 						break;
 					}
 #endif
@@ -3205,57 +3162,6 @@ devSSD1331init();
 				warpPrint("\r\tPayloads make rockets more than just fireworks.");
 				break;
 			}
-#if (WARP_BUILD_ENABLE_CURRENT)
-			case 'C':
-			{
-				
-#if (WARP_BUILD_ENABLE_DEVINA219)
-				warpPrint("\r\n\tWhat is shunt resistance in mOhm (e.g., '0100')>");
-				uint16_t currentShuntResistance = read4digits();
-				warpPrint("\r\n\tOutputting [s]ingle value or data series in [c]sv format?>");
-				
-				key = warpWaitKey();
-				
-				if (key=='s') {
-
-				warpPrint("\r\n\tHow many samples to average over (0001, 0002, 0004 ... 0128)>");
-				uint16_t samplesToAverage = read4digits();
-
-				warpPrint("\n");
-
-				warpEnableI2Cpins();
-				{
-					printCurrentMeasurementINA219(currentShuntResistance, samplesToAverage);
-				}
-
-				warpDisableI2Cpins();
-
-				}
-				else if (key=='c') {
-
-				warpPrint("\r\n\tHow many samples to collect (e.g. 1200)>");
-				uint16_t nsamples = read4digits();
-
-				warpPrint("\n");
-
-				warpEnableI2Cpins();
-				{
-					csvCurrentMeasurementINA219(currentShuntResistance, nsamples);
-				}
-
-				warpDisableI2Cpins();
-
-				}
-				else{
-					warpPrint("Incorrect Key Pressed");
-				}
-#else
-				warpPrint("\r\tINA219 disabled; cannot measure current.")
-#endif
-				break;
-			}
-
-#endif
 
 			default:
 			{
@@ -3384,20 +3290,6 @@ writeAllSensorsToFlash(int menuDelayBetweenEachRun, int loopForever)
 	sensorBitField = sensorBitField | kWarpFlashHDC1000BitField;
 #endif
 
-// Added
-
-#if (WARP_BUILD_ENABLE_DEVINA219)
-	// numberOfConfigErrors += writeSensorRegisterINA219(
-	// 	kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
-	// 	(0x3990)); // Need to edit this for correct initialisation stuff.
-	numberOfConfigErrors += writeSensorRegisterINA219(
-		kWarpSensorCalibrationRegisterINA219, /* Cal register*/
-		(0x1000 << 1)
-	);
-
-	sensorBitField = sensorBitField | kWarpFlashINA219BitField;
-#endif
-
 	/*
 	 * Add RV8803C7 to sensorBitField
 	*/
@@ -3490,12 +3382,6 @@ writeAllSensorsToFlash(int menuDelayBetweenEachRun, int loopForever)
 
 #if (WARP_BUILD_ENABLE_DEVHDC1000)
 		bytesWrittenIndex += appendSensorDataHDC1000(flashWriteBuf + bytesWrittenIndex);
-#endif
-
-//Added
-
-#if (WARP_BUILD_ENABLE_DEVINA219)
-		bytesWrittenIndex += appendSensorDataINA219(flashWriteBuf + bytesWrittenIndex);
 #endif
 
 #if (WARP_BUILD_ENABLE_DEVRV8803C7)
@@ -3662,19 +3548,6 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 		(0b1010000 << 8));
 #endif
 
-//added
-
-#if (WARP_BUILD_ENABLE_DEVINA219)
-	// numberOfConfigErrors += writeSensorRegisterINA219(
-	// 	kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
-	// 	(0x399D)
-	// );
-	numberOfConfigErrors += writeSensorRegisterINA219(
-		kWarpSensorCalibrationRegisterINA219,
-		(0x1000 << 1)
-	);
-#endif
-
 	if (printHeadersAndCalibration)
 	{
 
@@ -3723,11 +3596,6 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 #if (WARP_BUILD_ENABLE_DEVHDC1000)
 		warpPrint(" HDC1000 Temp, HDC1000 Hum,");
 #endif
-
-//added
-#if (WARP_BUILD_ENABLE_DEVINA219)
-		warpPrint(" INA219 Shunt Current, INA219 Shunt Voltage, INA219 Bus Voltage, INA219 Power");
-#endif	
 
 #if (WARP_CSVSTREAM_FLASH_PRINT_METADATA)
 		warpPrint(" RTC->TSR, RTC->TPR,");
@@ -3781,13 +3649,6 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 		printSensorDataHDC1000(hexModeFlag);
 #endif
 
-
-//Added
-#if (WARP_BUILD_ENABLE_DEVINA219)
-		printSensorDataINA219(hexModeFlag);
-#endif
-
-
 #if (WARP_CSVSTREAM_FLASH_PRINT_METADATA)
 		warpPrint(" %12d, %6d,", RTC->TSR, RTC->TPR);
 #endif
@@ -3795,16 +3656,16 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 
 		if (menuDelayBetweenEachRun > 0)
 		{
-			while (OSA_TimeGetMsec() - timeAtStart < menuDelayBetweenEachRun)
-			{
-			}
-
-			timeAtStart = OSA_TimeGetMsec();
-			// status = warpSetLowPowerMode(kWarpPowerModeVLPS, menuDelayBetweenEachRun);
-			// if (status != kWarpStatusOK)
+			// while (OSA_TimeGetMsec() - timeAtStart < menuDelayBetweenEachRun)
 			// {
-			// 	warpPrint("Failed to put into sleep: %d", status);
 			// }
+
+			// timeAtStart = OSA_TimeGetMsec();
+			status = warpSetLowPowerMode(kWarpPowerModeVLPS, menuDelayBetweenEachRun);
+			if (status != kWarpStatusOK)
+			{
+				warpPrint("Failed to put into sleep: %d", status);
+			}
 		}
 
 		readingCount++;
@@ -4293,8 +4154,8 @@ repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t
 						&deviceHDC1000State,		/*	i2cDeviceState			*/
 						NULL,				/*	spiDeviceState			*/
 						baseAddress,			/*	baseAddress			*/
-						0x00,				/*	minAddress			*/ // Fix this
-						0x1F,				/*	maxAddress			*/ // Fix this
+						0x00,				/*	minAddress			*/
+						0x1F,				/*	maxAddress			*/
 						repetitionsPerAddress,		/*	repetitionsPerAddress		*/
 						chunkReadsPerAddress,		/*	chunkReadsPerAddress		*/
 						spinDelay,			/*	spinDelay			*/
@@ -4310,36 +4171,6 @@ repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t
 
 			break;
 		}
-
-		case kWarpSensorINA219:
-		{
-/*
- *	INA219: VDD 3.3V--5V
- */
-#if (WARP_BUILD_ENABLE_DEVINA219)
-				loopForSensor(	"\r\nINA219\n\r",		/*	tagString			*/
-						&readSensorRegisterINA219,	/*	readSensorRegisterFunction	*/
-						&deviceINA219State,		/*	i2cDeviceState			*/
-						NULL,				/*	spiDeviceState			*/
-						baseAddress,			/*	baseAddress			*/
-						0x00,				/*	minAddress			*/
-						0x05,				/*	maxAddress			*/
-						repetitionsPerAddress,		/*	repetitionsPerAddress		*/
-						chunkReadsPerAddress,		/*	chunkReadsPerAddress		*/
-						spinDelay,			/*	spinDelay			*/
-						autoIncrement,			/*	autoIncrement			*/
-						sssupplyMillivolts,		/*	sssupplyMillivolts		*/
-						referenceByte,			/*	referenceByte			*/
-						adaptiveSssupplyMaxMillivolts,	/*	adaptiveSssupplyMaxMillivolts	*/
-						chatty				/*	chatty				*/
-			);
-#else
-			warpPrint("\r\n\tINA219 Read Aborted. Device Disabled :( ");
-#endif
-
-			break;
-		}
-
 
 		case kWarpSensorSI7021:
 		{
@@ -5193,21 +5024,6 @@ flashDecodeSensorBitField(uint16_t sensorBitField, uint8_t sensorIndex, uint8_t*
 			return;
 		}
 	}
-
-	/*
-	 * INA219
-	 */
-	if (sensorBitField & kWarpFlashINA219BitField)
-	{
-		numberOfSensorsFound++;
-		if (numberOfSensorsFound - 1 == sensorIndex)
-		{
-			*sizePerReading		= bytesPerReadingINA219;
-			*numberOfReadings = numberOfReadingsPerMeasurementINA219;
-			return;
-		}
-	}
-
 
 	/*
 	 * RV8803C7

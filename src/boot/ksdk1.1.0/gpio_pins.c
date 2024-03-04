@@ -31,7 +31,7 @@ gpio_output_pin_user_config_t	outputPins[] = {
 	/*
 	 *	Set unused pins as outputs
 	 */
-	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
+	#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
 		{
 			.pinName = kWarpPinBGX_nRST,
 			.config.outputLogic = 1,
@@ -165,7 +165,7 @@ gpio_output_pin_user_config_t	outputPins[] = {
 			.config.slewRate = kPortSlowSlewRate,
 			.config.driveStrength = kPortLowDriveStrength,
 		},
-	#elif (WARP_BUILD_ENABLE_FRDMKL03)
+	#elif (WARP_BUILD_ENABLE_FRDMKL03 || WARP_BUILD_ENABLE_EXERCISE3)
 
 		{
 			.pinName = kSSD1331PinMOSI,

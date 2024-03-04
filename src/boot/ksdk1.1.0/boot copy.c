@@ -253,7 +253,7 @@ uint8_t							gWarpSpiCommonSinkBuffer[kWarpMemoryCommonSpiBufferBytes];
 static void						sleepUntilReset(void);
 static void						lowPowerPinStates(void);
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	static void					disableTPS62740(void);
 	static void					enableTPS62740(uint16_t voltageMillivolts);
 	static void					setTPS62740CommonControlLines(uint16_t voltageMillivolts);
@@ -897,7 +897,7 @@ lowPowerPinStates(void)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 disableTPS62740(void)
 {
@@ -906,7 +906,7 @@ disableTPS62740(void)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 enableTPS62740(uint16_t voltageMillivolts)
 {
@@ -932,7 +932,7 @@ enableTPS62740(uint16_t voltageMillivolts)
 #endif
 
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 void
 setTPS62740CommonControlLines(uint16_t voltageMillivolts)
 {
@@ -1124,7 +1124,7 @@ warpScaleSupplyVoltage(uint16_t voltageMillivolts)
 		return;
 	}
 
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	if (voltageMillivolts >= 1800 && voltageMillivolts <= 3300)
 	{
 		enableTPS62740(voltageMillivolts);
@@ -1142,7 +1142,7 @@ warpScaleSupplyVoltage(uint16_t voltageMillivolts)
 void
 warpDisableSupplyVoltage(void)
 {
-#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03 && !WARP_BUILD_EXERCISE3)
+#if (!WARP_BUILD_ENABLE_GLAUX_VARIANT && !WARP_BUILD_ENABLE_FRDMKL03)
 	disableTPS62740();
 
 	/*
@@ -1950,7 +1950,7 @@ devSSD1331init();
 		timer++;
 	}
 
-#if 0
+
 	if (rttKey < 0)
 	{
 		printBootSplash(gWarpCurrentSupplyVoltage, menuRegisterAddress,
@@ -1984,7 +1984,6 @@ devSSD1331init();
 		 *	Notreached
 		 */
 	}
-#endif
 #endif
 
 #if (WARP_BUILD_ENABLE_GLAUX_VARIANT && WARP_BUILD_BOOT_TO_CSVSTREAM)
@@ -2078,9 +2077,6 @@ devSSD1331init();
 		warpPrint("\r- 's': power up all sensors.\n");
 		warpPrint("\r- 't': dump processor state.\n");
 		warpPrint("\r- 'u': set I2C address.\n");
-#if (WARP_BUILD_ENABLE_CURRENT)
-		warpPrint("\r- 'C': perform current measurement routine. \n");
-#endif
 
 #if (WARP_BUILD_ENABLE_DEVAT45DB)
 		warpPrint("\r- 'R': read bytes from Flash.\n");
@@ -3205,57 +3201,6 @@ devSSD1331init();
 				warpPrint("\r\tPayloads make rockets more than just fireworks.");
 				break;
 			}
-#if (WARP_BUILD_ENABLE_CURRENT)
-			case 'C':
-			{
-				
-#if (WARP_BUILD_ENABLE_DEVINA219)
-				warpPrint("\r\n\tWhat is shunt resistance in mOhm (e.g., '0100')>");
-				uint16_t currentShuntResistance = read4digits();
-				warpPrint("\r\n\tOutputting [s]ingle value or data series in [c]sv format?>");
-				
-				key = warpWaitKey();
-				
-				if (key=='s') {
-
-				warpPrint("\r\n\tHow many samples to average over (0001, 0002, 0004 ... 0128)>");
-				uint16_t samplesToAverage = read4digits();
-
-				warpPrint("\n");
-
-				warpEnableI2Cpins();
-				{
-					printCurrentMeasurementINA219(currentShuntResistance, samplesToAverage);
-				}
-
-				warpDisableI2Cpins();
-
-				}
-				else if (key=='c') {
-
-				warpPrint("\r\n\tHow many samples to collect (e.g. 1200)>");
-				uint16_t nsamples = read4digits();
-
-				warpPrint("\n");
-
-				warpEnableI2Cpins();
-				{
-					csvCurrentMeasurementINA219(currentShuntResistance, nsamples);
-				}
-
-				warpDisableI2Cpins();
-
-				}
-				else{
-					warpPrint("Incorrect Key Pressed");
-				}
-#else
-				warpPrint("\r\tINA219 disabled; cannot measure current.")
-#endif
-				break;
-			}
-
-#endif
 
 			default:
 			{
@@ -3266,6 +3211,7 @@ devSSD1331init();
 	return 0;
 }
 
+#if 0
 void
 writeAllSensorsToFlash(int menuDelayBetweenEachRun, int loopForever)
 {
@@ -3387,13 +3333,15 @@ writeAllSensorsToFlash(int menuDelayBetweenEachRun, int loopForever)
 // Added
 
 #if (WARP_BUILD_ENABLE_DEVINA219)
-	// numberOfConfigErrors += writeSensorRegisterINA219(
-	// 	kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
-	// 	(0x3990)); // Need to edit this for correct initialisation stuff.
+	numberOfConfigErrors += writeSensorRegisterINA219(
+		kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
+		(0x399D)); // Need to edit this for correct initialisation stuff.
+	warpPrint("writing config register");
 	numberOfConfigErrors += writeSensorRegisterINA219(
 		kWarpSensorCalibrationRegisterINA219, /* Cal register*/
-		(0x1000 << 1)
+		(0x1000 << 1)	
 	);
+	warpPrint("writing 0x1000");
 
 	sensorBitField = sensorBitField | kWarpFlashINA219BitField;
 #endif
@@ -3556,6 +3504,7 @@ writeAllSensorsToFlash(int menuDelayBetweenEachRun, int loopForever)
 	while (loopForever);
 #endif
 }
+#endif
 
 void
 printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
@@ -3665,10 +3614,10 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 //added
 
 #if (WARP_BUILD_ENABLE_DEVINA219)
-	// numberOfConfigErrors += writeSensorRegisterINA219(
-	// 	kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
-	// 	(0x399D)
-	// );
+	numberOfConfigErrors += writeSensorRegisterINA219(
+		kWarpSensorConfigurationRegisterINA219, /* Configuration register	*/
+		(0x399D)
+	);
 	numberOfConfigErrors += writeSensorRegisterINA219(
 		kWarpSensorCalibrationRegisterINA219,
 		(0x1000 << 1)
@@ -3726,7 +3675,7 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 
 //added
 #if (WARP_BUILD_ENABLE_DEVINA219)
-		warpPrint(" INA219 Shunt Current, INA219 Shunt Voltage, INA219 Bus Voltage, INA219 Power");
+		warpPrint(" INA219 Shunt Current");
 #endif	
 
 #if (WARP_CSVSTREAM_FLASH_PRINT_METADATA)
@@ -3795,16 +3744,16 @@ printAllSensors(bool printHeadersAndCalibration, bool hexModeFlag,
 
 		if (menuDelayBetweenEachRun > 0)
 		{
-			while (OSA_TimeGetMsec() - timeAtStart < menuDelayBetweenEachRun)
-			{
-			}
-
-			timeAtStart = OSA_TimeGetMsec();
-			// status = warpSetLowPowerMode(kWarpPowerModeVLPS, menuDelayBetweenEachRun);
-			// if (status != kWarpStatusOK)
+			// while (OSA_TimeGetMsec() - timeAtStart < menuDelayBetweenEachRun)
 			// {
-			// 	warpPrint("Failed to put into sleep: %d", status);
 			// }
+
+			// timeAtStart = OSA_TimeGetMsec();
+			status = warpSetLowPowerMode(kWarpPowerModeVLPS, menuDelayBetweenEachRun);
+			if (status != kWarpStatusOK)
+			{
+				warpPrint("Failed to put into sleep: %d", status);
+			}
 		}
 
 		readingCount++;
@@ -4317,6 +4266,7 @@ repeatRegisterReadForDeviceAndAddress(WarpSensorDevice warpSensorDevice, uint8_t
  *	INA219: VDD 3.3V--5V
  */
 #if (WARP_BUILD_ENABLE_DEVINA219)
+				warpPrint("looping for ina219");
 				loopForSensor(	"\r\nINA219\n\r",		/*	tagString			*/
 						&readSensorRegisterINA219,	/*	readSensorRegisterFunction	*/
 						&deviceINA219State,		/*	i2cDeviceState			*/

@@ -222,6 +222,8 @@ devSSD1331demo(void){
 
     SEGGER_RTT_WriteString(0, "\r\n\tGreen rectangle drawn\n");
 
+#if 0
+
 	writeArray(11, (uint8_t[]){
 		0x22,				/* DrawRect command */
 		0x06, 0x09,			/* Start Col, Row */
@@ -292,6 +294,8 @@ devSSD1331demo(void){
 		0x2F
 	}	
 	);
+
+#endif
 
 
 	return 0;
